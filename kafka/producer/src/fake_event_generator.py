@@ -2,9 +2,9 @@ import random
 from typing import Dict, Any, List
 from faker import Faker
 
-from database_helper.db_manager import PostgresDataManager
-from database_helper.models import Tracks, Users
-from genre_preference import GenrePreferenceService
+from database_ops.db_manager import PostgresDataManager
+from database_ops.models import Tracks, Users
+from kafka.producer.src.genra_provider import GenrePreferenceProvider
 
 
 class FakeTrackEventGenerator:
@@ -20,20 +20,20 @@ class FakeTrackEventGenerator:
         """
         # Database configuration
         db_config = {
-            "host": "musicDB",
-            "database": "music_db",
+            "host": "mediaDB",
+            "database": "media_data",
             "port": "5432",
-            "user": "pyspark",
-            "password": "pyspark1234",
+            "user": "test",
+            "password": "test1234",
         }
 
-        self.genre_service = GenrePreferenceService()
+        self.genre_service = GenrePreferenceProvider()
         self.data_manager = PostgresDataManager(db_config)
         self.tracks = self.data_manager.fetch_all(Tracks)
         self.users = self.data_manager.fetch_all(Users)
         self.fake = Faker()
 
-    def _filter_tracks_by_genres(
+    def _get_tracks_by_genres(
         self, preferred_genres: List[str]
     ) -> List[Dict[str, Any]]:
         """
@@ -44,7 +44,7 @@ class FakeTrackEventGenerator:
         """
         return [track for track in self.tracks if track["genre"] in preferred_genres]
 
-    def _weighted_track_choice(
+    def _get_track_weighted(
         self, filtered_tracks: List[Dict[str, Any]]
     ) -> Dict[str, Any]:
         """
@@ -71,12 +71,12 @@ class FakeTrackEventGenerator:
         preferred_genres = self.genre_service.get_user_preferred_genres(
             user_info["age"], user_info["gender"]
         )
-        filtered_tracks = self._filter_tracks_by_genres(preferred_genres)
+        filtered_tracks = self._get_tracks_by_genres(preferred_genres)
 
         if not filtered_tracks:
             raise ValueError("No tracks found for the user's preferred genres.")
 
-        selected_track = self._weighted_track_choice(filtered_tracks)
+        selected_track = self._get_track_weighted(filtered_tracks)
 
         return {
             "user_id": user_info["user_id"],

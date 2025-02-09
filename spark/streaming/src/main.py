@@ -1,6 +1,6 @@
 import argparse
 from streaming_pipeline import StreamingPipeline
-from database_helper.db_manager import PostgresDataManager
+from database_ops.db_manager import PostgresDataManager
 
 DB_CONFIG = {
     'host': 'mediaDB',

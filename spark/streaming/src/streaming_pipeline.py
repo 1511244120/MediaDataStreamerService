@@ -4,7 +4,7 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.exc import SQLAlchemyError
 from datetime import datetime
 
-from database_helper.models import Base
+from database_ops.models import Base
 
 
 class PostgresDataManager:
