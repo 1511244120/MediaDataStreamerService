@@ -1,7 +1,5 @@
 import time
 import json
-import random
-from datetime import datetime
 from typing import List, Dict, Any
 from kafka import KafkaProducer
 from fake_event_generator import FakeTrackEventGenerator
@@ -14,8 +12,6 @@ class Producer:
             bootstrap_servers=self.kafka_servers,
             value_serializer=lambda v: json.dumps(v).encode('utf-8')
         )
-        self.hashtags = ['#data', '#AI', '#BigData', '#Kafka', '#Python', '#project',
-                         '#developer', '#technology']
         self.fake_event_generator = FakeTrackEventGenerator()
     
     def send_data(self, data: Dict[str, Any]) -> None:

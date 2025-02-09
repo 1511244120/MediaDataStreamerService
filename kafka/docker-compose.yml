@@ -1,4 +1,5 @@
 version: '3.8'
+
 services:
   zookeeper:
     image: confluentinc/cp-zookeeper:7.8.0
@@ -11,6 +12,7 @@ services:
     command: [ "zookeeper-server-start", "/etc/kafka/zookeeper.properties" ]
     networks:
       - media_data_processing_network
+
   kafka:
     image: confluentinc/cp-kafka:7.8.0
     container_name: kafka
@@ -30,16 +32,17 @@ services:
       retries: 5
     networks:
       - media_data_processing_network
+
   producer:
     build:
       context: ./producer
-      dockerfile: ./producer/Dockerfile
     container_name: producer
     depends_on:
       kafka:
         condition: service_healthy
     networks:
       - media_data_processing_network
+
 networks:
   media_data_processing_network:
     external: true

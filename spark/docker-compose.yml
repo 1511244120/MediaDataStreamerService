@@ -1,4 +1,5 @@
 version: '3.8'
+
 services:
   spark-master:
     image: bitnami/spark:3.5.0
@@ -13,7 +14,8 @@ services:
       - "8080:8080"
       - "7077:7077"
     networks:
-      - music_stream_network
+      - media_data_processing_network
+
   spark-worker:
     image: bitnami/spark:3.5.0
     container_name: spark-worker
@@ -31,16 +33,17 @@ services:
     ports:
       - "8081:8081"
     networks:
-      - music_stream_network
+      - media_data_processing_network
+
   spark-streaming:
     build:
       context: ./streaming
-      dockerfile: ./streaming/Dockerfile
     container_name: spark-streaming
     depends_on:
       - spark-master
     networks:
-      - music_stream_network
+      - media_data_processing_network
+
 networks:
-  music_stream_network:
+  media_data_processing_network:
     external: true

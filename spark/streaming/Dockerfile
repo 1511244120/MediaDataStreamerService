@@ -18,4 +18,4 @@ ENV PYSPARK_PYTHON=python3
 CMD [ "spark-submit", \
 "--master", "spark://spark-master:7077", \
 "--packages", "org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.0", \
-"main.py" ]
+"main.py", "--topic", "music_streaming_data", "--app", "streaming"]

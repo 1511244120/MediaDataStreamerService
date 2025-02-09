@@ -32,8 +32,6 @@ CREATE TABLE IF NOT EXISTS users
     age        INT
 );
 
-COPY users FROM '/data/dataset.csv' DELIMITER ',' CSV HEADER;
-
 CREATE TABLE IF NOT EXISTS artists AS
 SELECT ROW_NUMBER() OVER (ORDER BY artist_name) AS artist_id,
        artist_name
