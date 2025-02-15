@@ -1,5 +1,5 @@
 from sqlalchemy import Column, Integer, Text
-from database_helper.models.base import Base
+from database_ops.models.base import Base
 
 class Artists(Base):
     __tablename__ = 'artists'

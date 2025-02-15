@@ -1,155 +1,132 @@
-from typing import List, Dict, Type
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
-from sqlalchemy.exc import SQLAlchemyError
-from datetime import datetime
+from typing import Dict
+from pyspark.sql import SparkSession
+from pyspark.sql.functions import col, from_json
+from pyspark.sql.types import (
+    IntegerType,
+    StringType,
+    StructField,
+    StructType,
+    TimestampType,
+)
 
-from database_ops.models import Base
+from database_ops.db_manager import PostgresDataManager
+from database_ops.models.track_like_event_log import TrackLikeEventLog
+from database_ops.models.track_stream_event_log import TrackStreamEventLog
 
 
-class PostgresDataManager:
+class StreamingPipeline:
     """
-    A class for inserting and updating data in a PostgreSQL database using
-    SQLAlchemy ORM.
+    A class to process Kafka streaming data using Spark Structured Streaming.
     """
 
-    def __init__(self, db_config: Dict[str, str]):
+    def __init__(self, kafka_config: Dict[str, str], db_manager: PostgresDataManager):
         """
-        Initialize the database connection and session.
+        Initialize the streaming pipeline.
 
-        :param db_config: A dictionary containing
-        database connection parameters.
+        :param kafka_config: A dictionary containing
+        Kafka connection parameters.
+        :param db_manager: An instance of PostgresDataManager
+        for database operations.
         """
-        self.engine = create_engine(
-            f"postgresql://"
-            f"{db_config['user']}:"
-            f"{db_config['password']}@"
-            f"{db_config['host']}:"
-            f"{db_config['port']}/"
-            f"{db_config['database']}"
-        )
-        self.Session = sessionmaker(bind=self.engine)
-        self.session = self.Session()
+        self.spark = SparkSession.builder.appName(
+            "UnifiedStreamingPipeline"
+        ).getOrCreate()
+        self.spark.conf.set("spark.sql.streaming.minBatchesToRetain", 10)
+        self.spark.conf.set("spark.streaming.kafka.maxOffsetsPerTrigger", 1000)
+        self.kafka_config = kafka_config
+        self.db_manager = db_manager
 
-    def close(self) -> None:
-        """Close the session and connection."""
-        self.session.close()
-        self.engine.dispose()
-
-    def get_new_session(self):
-        return self.Session()
-
-    def insert_record(self, model: Type[Base], record: Dict[str, any]) -> None:
-        """
-        Insert a single record into the specified table using the ORM model.
-
-        :param model: The ORM model class corresponding to the table.
-        :param record: A dictionary containing data for the single
-        record to insert.
-        """
-        self.session = self.get_new_session()
-
-        try:
-            if "created_timestamp" not in record:
-                record["created_timestamp"] = datetime.utcnow()
-            new_record = model(**record)
-            self.session.add(new_record)
-            self.session.commit()
-            print(f"Successfully inserted a record into {model.__tablename__}.")
-        except SQLAlchemyError as e:
-            self.session.rollback()
-            print(f"Error inserting record into {model.__tablename__}: {e}")
-            raise
-        finally:
-            self.session.close()
-
-    def insert(self, model: Type[Base], data: List[Dict[str, any]]) -> None:
-        """
-        Insert multiple records into the specified table using the ORM model.
-
-        :param model: The ORM model class corresponding to the table.
-        :param data: A list of dictionaries containing data for
-        multiple records to insert.
-        """
-        self.session = self.get_new_session()
-
-        try:
-            for record in data:
-                if "created_timestamp" not in record:
-                    record["created_timestamp"] = datetime.utcnow()
-            self.session.bulk_insert_mappings(model, data)
-            self.session.commit()
-            print(
-                f"Successfully inserted {len(data)} "
-                f"records into {model.__tablename__}."
-            )
-        except SQLAlchemyError as e:
-            self.session.rollback()
-            print(f"Error inserting records into {model.__tablename__}: {e}")
-            raise
-        finally:
-            self.session.close()
-
-    def update(
-        self, model: Type[Base], conflict_column: str, update_data: Dict[str, any]
-    ) -> None:
-        """
-        Update data in the specified table using the ORM model.
-
-        :param model: The ORM model class corresponding to the table.
-        :param conflict_column: The column to check for conflicts
-        (usually the primary key).
-        :param update_data: A dictionary containing the new data for the update.
-        """
-        self.session = self.get_new_session()
-
-        try:
-            record = (
-                self.session.query(model)
-                .filter(getattr(model, conflict_column) == update_data[conflict_column])
-                .one_or_none()
-            )
-            if record:
-                for key, value in update_data.items():
-                    setattr(record, key, value)
-                # Automatically update the modified_timestamp
-                record.modified_timestamp = datetime.utcnow()
-                print(
-                    f"Updated record {conflict_column} ="
-                    f" {update_data[conflict_column]}"
-                )
-            else:
-                print(
-                    f"No record found with {conflict_column} ="
-                    f" {update_data[conflict_column]}"
-                )
-            self.session.commit()
-        except SQLAlchemyError as e:
-            self.session.rollback()
-            print(f"Error updating {model.__tablename__}: {e}")
-            raise
-        finally:
-            self.session.close()
-
-    def fetch_all(self, model: Type[Base]) -> List[Dict[str, any]]:
-        """
-        Fetch all records from the specified table using the ORM model.
-
-        :param model: The ORM model class corresponding to the table.
-        :return: A list of dictionaries representing all records in the table.
-        """
-        self.session = self.get_new_session()
-
-        try:
-            records = self.session.query(model).all()
-            return [
-                record.__dict__
-                for record in records
-                if "_sa_instance_state" in record.__dict__
-                and record.__dict__.pop("_sa_instance_state")
+        # Define schemas for different log types
+        self.streaming_schema = StructType(
+            [
+                StructField("user_id", IntegerType(), True),
+                StructField("track_id", IntegerType(), True),
+                StructField("event_timestamp", TimestampType(), True),
+                StructField("event_type", StringType(), True),
             ]
-        except SQLAlchemyError as e:
-            print(f"Error fetching records from {model.__tablename__}: {e}")
-            raise
-        finally:
-            self.session.close()
+        )
+
+        self.like_schema = StructType(
+            [
+                StructField("user_id", IntegerType(), True),
+                StructField("track_id", IntegerType(), True),
+                StructField("event_timestamp", TimestampType(), True),
+                StructField("event_type", StringType(), True),
+            ]
+        )
+
+    def process_stream(self, topic: str) -> None:
+        """
+        Process streaming data from the specified Kafka topic.
+
+        :param topic: Kafka topic name.
+        """
+        kafka_df = (
+            self.spark.readStream.format("kafka")
+            .option("kafka.bootstrap.servers", self.kafka_config["bootstrap_servers"])
+            .option("subscribe", topic)
+            .option("kafka.group.id", "pipeline_group")
+            .load()
+        )
+
+        # Parse Kafka data into structured data with dynamic schema
+        parsed_df = kafka_df.selectExpr("CAST(value AS STRING) as json_data").select(
+            from_json(col("json_data"), self.streaming_schema).alias("streaming_data"),
+            from_json(col("json_data"), self.like_schema).alias("like_data"),
+        )
+
+        # Separate streaming and like data
+        streaming_df = (
+            parsed_df.select("streaming_data.*")
+            .filter(col("streaming_data.event_type") == "streaming")
+            .drop("event_type")
+        )
+        like_df = (
+            parsed_df.select("like_data.*")
+            .filter(col("like_data.event_type") == "like")
+            .drop("event_type")
+        )
+
+        # Process each type of log
+        streaming_df.writeStream.foreachBatch(self._process_streaming).outputMode(
+            "append"
+        ).start()
+
+        like_df.writeStream.foreachBatch(self._process_like).outputMode(
+            "append"
+        ).start()
+
+        # Await termination of streams
+        self.spark.streams.awaitAnyTermination()
+
+    def _process_streaming(self, batch_df, batch_id):
+        """
+        Process streaming logs and save to `track_stream_log`.
+
+        :param batch_df: DataFrame containing streaming logs.
+        :param batch_id: Batch ID for the streaming data.
+        """
+        try:
+            records = batch_df.collect()
+            data = [record.asDict() for record in records]
+            self.db_manager.insert(TrackStreamEventLog, data)
+            print(
+                f"Processed {len(data)} " f"streaming records into `track_stream_log`."
+            )
+        except Exception as e:
+            print(f"Error processing batch {batch_id}: {e}")
+
+    def _process_like(self, batch_df, batch_id):
+        """
+        Process like logs and save to `track_like_log`.
+
+        :param batch_df: DataFrame containing like logs.
+        :param batch_id: Batch ID for the like data.
+        """
+        try:
+            records = batch_df.collect()
+            data = [record.asDict() for record in records]
+            self.db_manager.insert(TrackLikeEventLog, data)
+            print(f"Processed {len(data)} like records into `track_like_log`.")
+        except Exception as e:
+            print(f"Error processing batch {batch_id}: {e}")

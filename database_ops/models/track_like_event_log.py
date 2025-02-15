@@ -1,5 +1,5 @@
 from sqlalchemy import Column, Integer, ForeignKey, DateTime
-from database_helper.models.base import Base
+from database_ops.models.base import Base
 
 class TrackLikeEventLog(Base):
     __tablename__ = 'track_like_event_log'
