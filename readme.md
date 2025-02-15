@@ -21,12 +21,7 @@ In the future this allows for easy deployment in a distributed Kubernetes cluste
 
 ## Local Development Setup
 
-The following tools are required:
-
-- Docker
-- Docker Compose
-- Python 3.10
-- Miniconda or Anaconda
+Please make sure you have: **Docker**, **Python 3.10**, **Miniconda or Anaconda**
 
 ### Instruction to Start the Project
 
@@ -53,7 +48,7 @@ docker-compose -f spark/docker-compose.yml up -d --build
 
 ### Rest of the Helpful Docker commands
 <details>
-<summary>PSQL DB Commands</summary>
+<summary>PSQL</summary>
 
 #### Stop
 ```shell
@@ -67,7 +62,7 @@ docker rm musicDB
 </details>
 
 <details>
-<summary>Kafka  Commands</summary>
+<summary>Kafka</summary>
 
 #### Stop Kafka Instance
 ```shell
@@ -76,10 +71,26 @@ docker-compose -f kafka/docker-compose.yml down
 </details>
 
 <details>
-<summary>Spark  Commands</summary>
+<summary>Spark</summary>
 
 #### Stop Spark Instance
 ```shell
 docker-compose -f spark/docker-compose.yml down
 ```
 </details>
+
+### Tech Stack Used
+
+#### Languages
+<div style="display: flex; gap: 10px; align-items: center;">
+  <img src="https://img.shields.io/badge/Python-3776AB?style=for-the-badge&logo=python&logoColor=white" height="25">
+  <img src="https://img.shields.io/badge/SQL-000000?style=for-the-badge&logo=database&logoColor=white" height="25">
+</div>
+
+#### Frameworks & Libraries
+<div style="display: flex; gap: 10px; align-items: center;">
+  <img src="https://img.shields.io/badge/Apache_Kafka-231F20?style=for-the-badge&logo=apachekafka&logoColor=white" height="25">
+  <img src="https://img.shields.io/badge/PySpark-E25A1C?style=for-the-badge&logo=apache-spark&logoColor=white" height="25">
+  <img src="https://img.shields.io/badge/Docker-2496ED?style=for-the-badge&logo=docker&logoColor=white" height="25">
+  <img src="https://img.shields.io/badge/PostgreSQL-4169E1?style=for-the-badge&logo=postgresql&logoColor=white" height="25">
+</div>
