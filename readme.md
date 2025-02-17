@@ -94,3 +94,9 @@ docker-compose -f spark/docker-compose.yml down
   <img src="https://img.shields.io/badge/Docker-2496ED?style=for-the-badge&logo=docker&logoColor=white" height="25">
   <img src="https://img.shields.io/badge/PostgreSQL-4169E1?style=for-the-badge&logo=postgresql&logoColor=white" height="25">
 </div>
+
+## System Diagram
+
+The following diagram illustrates the architecture of the data pipeline:
+
+![System Architecture](./assets/SystemArchitecture.PNG)
